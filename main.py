@@ -1,29 +1,67 @@
 from fastapi import FastAPI, Request
 
+from database import (
+    init_db,
+    save_event,
+    get_events
+)
+
 app = FastAPI()
+
+init_db()
 
 
 @app.get("/")
 def home():
-    return {"message": "Webhook server running"}
+
+    return {
+        "message": "Webhook Tracker Running"
+    }
 
 
 @app.post("/webhook")
 async def github_webhook(request: Request):
 
-    body = await request.body()
-
-    print("\n========== REQUEST RECEIVED ==========")
-
-    if not body:
-        print("Empty body received")
-        return {"status": "received"}
-
     payload = await request.json()
 
-    event = request.headers.get("X-GitHub-Event")
+    repo = payload.get(
+        "repository",
+        {}
+    ).get(
+        "full_name"
+    )
 
-    print("GitHub Event:", event)
-    print(payload)
+    commits = payload.get(
+        "commits",
+        []
+    )
 
-    return {"status": "received"}
+    for commit in commits:
+
+        author = commit["author"]["name"]
+
+        message = commit["message"]
+
+        save_event(
+            repo,
+            author,
+            message
+        )
+
+        print(
+            f"{repo} | {author} | {message}"
+        )
+
+    return {
+        "status": "saved"
+    }
+
+
+@app.get("/events")
+def events():
+
+    data = get_events()
+
+    return {
+        "events": data
+    }
